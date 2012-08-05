@@ -261,7 +261,7 @@ class authorizationsManagement extends plugin {
 	 * Reorder the arrays keys : if array is [3] => 'value1', [4] => 'value2'
 	 * the result will be [0] => 'value1', [1] => 'value2'
 	 */
-	private function c14nArray($in) {
+	private function c14nArray(array $in) {
 		$out = array();
 
 		foreach($in as $item) {
@@ -273,11 +273,27 @@ class authorizationsManagement extends plugin {
 
 
 	/**
+	 * Remove a value from a array
+	 */
+	private function arrayRemove(array $haystack, $value, $strict = false) {
+		$value_idx = array_search($value, $haystack, $strict);
+
+		if(false !== $value_idx) {
+			unset($haystack[$value_idx]);
+		}
+		
+		return $this->c14nArray($haystack);
+	}
+
+
+	/**
 	 * Save the authorizations for the current user
 	 */
 	public function save() {
 		$authorizations = $this->getAuthorizations();
 		$edit = array();
+		$groups = array();
+		$ldap = null;
 
 		foreach($authorizations as $authorization) {
 			$to_be_enabled = isset($_POST[$authorization->attributes['id']]) && $_POST[$authorization->attributes['id']] === '1';
@@ -285,6 +301,7 @@ class authorizationsManagement extends plugin {
 
 			if($is_enabled !== $to_be_enabled) {
 				if(isset($authorization->attributes['service'])) {
+					/* Update the authorizedService attribute */
 					$service = $authorization->attributes['service'];
 
 					if(!isset($edit['authorizedService'])) {
@@ -328,16 +345,37 @@ class authorizationsManagement extends plugin {
 						}
 					}
 				} else if(isset($authorization->attributes['group'])) {
+					/* Update group memberUid attribute */
 					$group = $authorization->attributes['group'];
-					echo($authorization->attributes['id'] . ' va être modifié pour ' . ($to_be_enabled ? 'true' : 'false') . ' : groupe ' . $authorization->attributes['group'] . '<br />');
+
+					if(null === $ldap) {
+						$ldap = $this->config->get_ldap_link();
+					}
+
+					$ldap->cd($this->config->current['BASE']);
+					$ldap->search('(&(objectClass=posixGroup)(cn=' . $group . '))', array('memberUid'));
+					$attributes = $ldap->fetch();
+
+					$groups[$attributes['dn']] = $attributes['memberUid'];
+					unset($groups[$attributes['dn']]['count']);
+
+					if($to_be_enabled) {
+						/* Add the current user into the group */
+						$groups[$attributes['dn']][] = $this->uid;
+					} else {
+						/* Remove the user name from the group */
+						$groups[$attributes['dn']] = $this->arrayRemove($groups[$attributes['dn']], $this->uid);
+					}
 				}
 			}
 		}
 
-		$ldap = null;
-
 		if(count($edit) > 0) {
-			$ldap = $this->config->get_ldap_link();
+			/* Performs the LDAP user modifications if required */
+			if(null === $ldap) {
+				$ldap = $this->config->get_ldap_link();
+			}
+
 			$ldap->cd($this->dn);
 
 			if(isset($edit['authorizedService'])) {
@@ -355,7 +393,21 @@ class authorizationsManagement extends plugin {
 			}
 		}
 
-		/* TODO: groups modifications */
+		if(count($groups) > 0) {
+			/* Performs the LDAP posix group modifications if required */
+			if(null === $ldap) {
+				$ldap = $this->config->get_ldap_link();
+			}
+
+			foreach($groups as $dn => $memberUid) {
+				$ldap->cd($dn);
+				$ldap->modify(array('memberUid' => $memberUid));
+
+				if (!$ldap->success()){
+					msg_dialog::display(_("LDAP error"), msgPool::ldaperror($ldap->get_error(), $this->dn, LDAP_MOD, get_class()));
+				}
+			}
+		}
 
 		parent::save();
 		$this->cleanup();
