@@ -255,6 +255,110 @@ class authorizationsManagement extends plugin {
 
 		return $messages;
 	}
+
+
+	/**
+	 * Reorder the arrays keys : if array is [3] => 'value1', [4] => 'value2'
+	 * the result will be [0] => 'value1', [1] => 'value2'
+	 */
+	private function c14nArray($in) {
+		$out = array();
+
+		foreach($in as $item) {
+			$out[] = $item;
+		}
+
+		return $out;
+	}
+
+
+	/**
+	 * Save the authorizations for the current user
+	 */
+	public function save() {
+		$authorizations = $this->getAuthorizations();
+		$edit = array();
+
+		foreach($authorizations as $authorization) {
+			$to_be_enabled = isset($_POST[$authorization->attributes['id']]) && $_POST[$authorization->attributes['id']] === '1';
+			$is_enabled = $this->userHasAuthorization($authorization);
+
+			if($is_enabled !== $to_be_enabled) {
+				if(isset($authorization->attributes['service'])) {
+					$service = $authorization->attributes['service'];
+
+					if(!isset($edit['authorizedService'])) {
+						if(isset($this->attrs['authorizedService'])) {
+							$edit['authorizedService'] = $this->attrs['authorizedService'];
+							unset($edit['authorizedService']['count']);
+						} else {
+							$edit['authorizedService'] = array();
+						}
+					}
+					
+					if($to_be_enabled) {
+						/* Add authorizedServiceObject objectClass if required */
+						for($i = 0; !$has_objectClass && $i < $this->attrs['objectClass']['count']; ++$i) {
+							if('authorizedServiceObject' === $this->attrs['objectClass'][$i]) {
+								$has_objectClass = true;
+							}
+						}
+
+						if(!$has_objectClass) {
+							$edit['objectClass'] = $this->attrs['objectClass'];
+							unset($edit['objectClass']['count']);
+							$has_objectClass = true;
+						}
+
+						/* Add the service name into the authorizedService attribute */
+						$edit['authorizedService'][] = $service;
+					} else {
+						/* Remove the service name from the authorizedService attribute */
+						$service_idx = null;
+
+						for($i = 0; null === $service_idx && $i < count($edit['authorizedService']); ++$i) {
+							if($service === $edit['authorizedService'][$i]) {
+								$service_idx = $i;
+							}
+						}
+
+						if(null !== $service_idx) {
+							unset($edit['authorizedService'][$service_idx]);
+						}
+					}
+				} else if(isset($authorization->attributes['group'])) {
+					$group = $authorization->attributes['group'];
+					echo($authorization->attributes['id'] . ' va être modifié pour ' . ($to_be_enabled ? 'true' : 'false') . ' : groupe ' . $authorization->attributes['group'] . '<br />');
+				}
+			}
+		}
+
+		$ldap = null;
+
+		if(count($edit) > 0) {
+			$ldap = $this->config->get_ldap_link();
+			$ldap->cd($this->dn);
+
+			if(isset($edit['authorizedService'])) {
+				$edit['authorizedService'] = $this->c14nArray($edit['authorizedService']);
+			}
+
+			if(isset($edit['objectClass'])) {
+				$edit['objectClass'] = $this->c14nArray($edit['objectClass']);
+			}
+
+			$ldap->modify($edit);
+
+			if (!$ldap->success()){
+				msg_dialog::display(_("LDAP error"), msgPool::ldaperror($ldap->get_error(), $this->dn, LDAP_MOD, get_class()));
+			}
+		}
+
+		/* TODO: groups modifications */
+
+		parent::save();
+		$this->cleanup();
+	}
 }
 
 class XmlException extends Exception {
