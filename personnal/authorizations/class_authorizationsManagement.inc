@@ -98,6 +98,28 @@ class authorizationsManagement extends plugin {
 			}
 		}
 	}
+
+
+	/**
+	 * Get all the authorizations from the configuration
+	 */
+	private function getAuthorizations() {
+		return $this->getAuthorizationsRecurse($this->auth_config->root->children);
+	}
+
+	private function getAuthorizationsRecurse($children) {
+		$result = array();
+
+		foreach($children as $child) {
+			if(self::ELT_CAT === $child->name) {
+				$result = array_merge($result, $this->getAuthorizationsRecurse($child->children));
+			} else if(self::ELT_AUT === $child->name) {
+				$result[] = $child;
+			}
+		}
+
+		return $result;
+	}
 }
 
 class XmlException extends Exception {
