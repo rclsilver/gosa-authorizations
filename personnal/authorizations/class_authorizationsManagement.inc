@@ -224,6 +224,37 @@ class authorizationsManagement extends plugin {
 
 		return $display;
 	}
+
+
+	/**
+	 * Check if all required groups exist
+	 */
+	public function check() {
+		$messages = parent::check();
+		$authorizations = $this->getAuthorizations();
+
+		$ldap = null;
+
+		foreach($authorizations as $authorization) {
+			if(isset($_POST[$authorization->attributes['id']]) && $_POST[$authorization->attributes['id']] === '1') {
+				if(isset($authorization->attributes['group'])) {
+					if(null === $ldap) {
+						$ldap = $this->config->get_ldap_link();
+					}
+
+					$ldap->cd($this->config->current['BASE']);
+					$ldap->search('(&(objectClass=posixGroup)(cn=' . $authorization->attributes['group'] . '))', array('cn'));
+					$attributes = $ldap->fetch();
+
+					if(0 === count($attributes)) {
+						$messages[] = _('The group') . ' ' . $authorization->attributes['group'] . ' ' . _('doesn\'t exist');
+					}
+				}
+			}
+		}
+
+		return $messages;
+	}
 }
 
 class XmlException extends Exception {
