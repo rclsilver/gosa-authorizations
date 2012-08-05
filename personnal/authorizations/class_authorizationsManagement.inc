@@ -307,6 +307,7 @@ class authorizationsManagement extends plugin {
 						if(!$has_objectClass) {
 							$edit['objectClass'] = $this->attrs['objectClass'];
 							unset($edit['objectClass']['count']);
+							$edit['objectClass'][] = 'authorizedServiceObject';
 							$has_objectClass = true;
 						}
 
