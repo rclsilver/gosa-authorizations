@@ -332,17 +332,7 @@ class authorizationsManagement extends plugin {
 						$edit['authorizedService'][] = $service;
 					} else {
 						/* Remove the service name from the authorizedService attribute */
-						$service_idx = null;
-
-						for($i = 0; null === $service_idx && $i < count($edit['authorizedService']); ++$i) {
-							if($service === $edit['authorizedService'][$i]) {
-								$service_idx = $i;
-							}
-						}
-
-						if(null !== $service_idx) {
-							unset($edit['authorizedService'][$service_idx]);
-						}
+						$edit['authorizedService'] = $this->arrayRemove($edit['authorizedService'], $service);
 					}
 				} else if(isset($authorization->attributes['group'])) {
 					/* Update group memberUid attribute */
@@ -377,15 +367,6 @@ class authorizationsManagement extends plugin {
 			}
 
 			$ldap->cd($this->dn);
-
-			if(isset($edit['authorizedService'])) {
-				$edit['authorizedService'] = $this->c14nArray($edit['authorizedService']);
-			}
-
-			if(isset($edit['objectClass'])) {
-				$edit['objectClass'] = $this->c14nArray($edit['objectClass']);
-			}
-
 			$ldap->modify($edit);
 
 			if (!$ldap->success()){
