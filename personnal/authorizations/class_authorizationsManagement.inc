@@ -42,4 +42,72 @@ class authorizationsManagement extends plugin {
 			$this->groups[$attributes['dn']] = $attributes['cn'][0];
 		}
 	}
+
+
+	/**
+	 * Load the plugin specific configuration
+	 */
+	private function loadConfig($filename) {
+		libxml_use_internal_errors(true);
+
+		$dom = new DomDocument();
+		$res = $dom->load($filename);
+
+		if(!$res) {
+			$errors = libxml_get_errors();
+			libxml_clear_errors();
+			throw new XmlException($errors);
+		}
+		
+		$config = new stdClass();
+		$config->filename = $filename;
+
+		$root = $dom->documentElement;
+		$config->root = new stdClass();
+
+		// recursive function to load the tree
+		$this->loadConfigTree($root, $config->root);
+
+		return $config;
+	}
+
+
+	/**
+	 * Browse the tree
+	 */
+	private function loadConfigTree($dom_element, $object_element) {
+		$object_element->name = $dom_element->nodeName;
+
+		if($dom_element->hasAttributes()) {
+			$object_element->attributes = array();
+
+			foreach($dom_element->attributes as $key => $attribute) {
+				$object_element->attributes[$key] = $attribute->value;
+			}
+		}
+
+		if($dom_element->childNodes->length > 1) { /* more than 1 because first child is always textnode */
+			$object_element->children = array();
+
+			foreach($dom_element->childNodes as $dom_child) {
+				if($dom_child->nodeType === XML_ELEMENT_NODE) {
+					$child_object = new stdClass();
+					$this->loadConfigTree($dom_child, $child_object);
+					array_push($object_element->children, $child_object);
+				}
+			}
+		}
+	}
+}
+
+class XmlException extends Exception {
+	var $errors;
+
+	function __construct($xml_errors) {
+		$this->errors = $xml_errors;
+	}
+
+	public function getErrors() {
+		return $this->errors;
+	}
 }
