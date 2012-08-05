@@ -120,6 +120,110 @@ class authorizationsManagement extends plugin {
 
 		return $result;
 	}
+
+	/**
+	 * Returns true if the user has the authorization
+	 */
+	private function userHasAuthorization($authorization) {
+		// check if the user has the authorized service attribute
+		if(isset($authorization->attributes['service'])) {
+			$count = isset($this->attrs['authorizedService']['count']) ? $this->attrs['authorizedService']['count'] : 0;
+
+			for($i = 0; $i < $count; ++$i) {
+				if($authorization->attributes['service'] === $this->attrs['authorizedService'][$i]) {
+					return true;
+				}
+			}
+			
+			return false;
+		} else if(isset($authorization->attributes['group'])) {
+			if(count($this->groups)) {
+				foreach($this->groups as $dn => $cn) {
+					if($cn === $authorization->attributes['group']) {
+						return true;
+					}
+				}
+			}
+
+			return false;
+		} else {
+			return false;
+		}
+	}
+
+
+	/**
+	 * Generate the html for this node
+	 */
+	public function execute($isCopyPaste = false) {
+		parent::execute();
+		$display = null;
+
+		if(!file_exists(CONFIG_DIR . DIRECTORY_SEPARATOR . self::CONF_FILE)) {
+			$display .= '<img alt="" src="images/small-error.png" align="middle">&nbsp;';
+			$display .= '<b>' . _('The configuration file doesn\'t exist') . '</b>';
+			$display .= back_to_main();
+			return $display;
+		} else if(!is_readable(CONFIG_DIR . DIRECTORY_SEPARATOR . self::CONF_FILE)) {
+			$display .= '<img alt="" src="images/small-error.png" align="middle">&nbsp;';
+			$display .= '<b>' . _('The configuration file isn\'t readable') . '</b><br />';
+			$display .= back_to_main();
+			return $display;
+		}
+
+		/* Load configuration */
+		if(null === $this->auth_config) {
+			try {
+				$this->auth_config = $this->loadConfig(CONFIG_DIR . DIRECTORY_SEPARATOR . self::CONF_FILE);
+			} catch(Exception $e) {
+				$display .= '<img alt="" src="images/small-error.png" align="middle">&nbsp;';
+				$display .= '<b>' . _('Error while loading the configuration: ') . '</b>';
+				$display .= '<ul>';
+				
+				foreach($e->getErrors() as $error) {
+					$display .= '<li>' . $error->file . ':' . $error->line . ':' . $error->column . ': ' . $error->message . '</li>';
+				}
+
+				$display .= '</ul>';
+				$display .= back_to_main();
+				return $display;				
+			}
+		}
+
+		$display .= $this->display($this->auth_config->root->children);
+
+		return $display;
+	}
+
+
+	/**
+	 * Transform the configuration to html
+	 */
+	private function display($children) {
+		$display  = '';
+
+		foreach($children as $child) {
+			if(self::ELT_CAT === $child->name) {
+				$display .= '<fieldset>' . PHP_EOL;
+				$display .= '  <legend>' . $child->attributes['label'] . '</legend>' . PHP_EOL;
+				$display .= $this->display($child->children);
+				$display .= '</fieldset>' . PHP_EOL;
+			} else if(self::ELT_AUT === $child->name) {
+				$checked = '';
+
+				if($this->userHasAuthorization($child)) {
+					$checked = 'checked ';
+				}
+
+				$display .= '<input type="checkbox" id="' . $child->attributes['id'] . '" name="' . $child->attributes['id'] . '" value="1" ' . $checked . '/>' . PHP_EOL;
+				$display .= '<label for="' . $child->attributes['id'] . '">' . $child->attributes['label'] . '</label><br />' . PHP_EOL;
+			} else {
+				// unknown type... error ?
+			}
+		}
+
+		return $display;
+	}
 }
 
 class XmlException extends Exception {
