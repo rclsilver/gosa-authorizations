@@ -12,6 +12,8 @@ class authorizationsManagement extends plugin {
 	const ELT_AUT = 'authorization';
 	var $auth_config = null;
 	var $groups = array();
+	var $write_memberUid = false;
+	var $write_authorizedService = false;
 
 
 	/**
@@ -41,6 +43,10 @@ class authorizationsManagement extends plugin {
 		while($attributes = $ldap->fetch()) {
 			$this->groups[$attributes['dn']] = $attributes['cn'][0];
 		}
+
+		/* Load ACLs */
+		$this->write_memberUid = strstr($this->getAcl('memberUid'), 'w') !== false;
+		$this->write_authorizedService = strstr($this->getAcl('authorizedService'), 'w') !== false;
 	}
 
 
@@ -215,7 +221,17 @@ class authorizationsManagement extends plugin {
 					$checked = 'checked ';
 				}
 
-				$display .= '<input type="checkbox" id="' . $child->attributes['id'] . '" name="' . $child->attributes['id'] . '" value="1" ' . $checked . '/>' . PHP_EOL;
+				$disabled = '';
+
+				if(isset($child->attributes['group']) && !$this->write_memberUid) {
+					$disabled = ' disabled="disabled"';
+				}
+
+				if(isset($child->attributes['service']) && !$this->write_authorizedService) {
+					$disabled = ' disabled="disabled"';
+				}
+
+				$display .= '<input type="checkbox" id="' . $child->attributes['id'] . '" name="' . $child->attributes['id'] . '" value="1" ' . $checked . $disabled . '/>' . PHP_EOL;
 				$display .= '<label for="' . $child->attributes['id'] . '">' . $child->attributes['label'] . '</label><br />' . PHP_EOL;
 			} else {
 				// unknown type... error ?
@@ -301,6 +317,10 @@ class authorizationsManagement extends plugin {
 
 			if($is_enabled !== $to_be_enabled) {
 				if(isset($authorization->attributes['service'])) {
+					if(!$this->write_authorizedService) {
+						continue;
+					}
+
 					/* Update the authorizedService attribute */
 					$service = $authorization->attributes['service'];
 
@@ -335,6 +355,10 @@ class authorizationsManagement extends plugin {
 						$edit['authorizedService'] = $this->arrayRemove($edit['authorizedService'], $service);
 					}
 				} else if(isset($authorization->attributes['group'])) {
+					if(!$this->write_memberUid) {
+						continue;
+					}
+
 					/* Update group memberUid attribute */
 					$group = $authorization->attributes['group'];
 
