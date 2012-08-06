@@ -1,0 +1,6 @@
+Installation:
+  - Extract the content of the plugin into <gosa home>/plugins/authorizations
+  - Edit gosa.conf:
+    - Add <tab class="authorizationsManagement" name="Authorizations" /> into the <usertabs> tag
+    - Add <tab class="authorizationsManagement" name="Authorizations" /> into the <MyAccountTabs> tag
+  - Create the authorizations.xml configuration file based on authorizations.xml.sample

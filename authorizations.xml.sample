@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<conf>
+  <category id="groups" label="Groupes">
+    <authorization id="administrators" group="administrators" label="Administrator" />
+  </category>
+
+  <category id="openvpn" label="OpenVPN">
+    <authorization id="ovpn_admin" service="vpn-admin" label="OpenVPN Administrators" />
+    <authorization id="ovpn_guest" service="vpn-guest" label="OpenVPN Guests" />
+  </category>
+
+  <category id="applications" label="Applications">
+    <authorization id="nagios" service="nagios" label="Nagios" />
+    <authorization id="munin" service="munin" label="Munin" />
+    <authorization id="gosa" service="gosa" label="GOsa²" />
+    <authorization id="redmine" service="redmine" label="redmine" />
+    <authorization id="jabber" service="jabber" label="Jabber" />
+  </category>
+</conf>
